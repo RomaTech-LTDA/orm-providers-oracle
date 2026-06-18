@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/romatech-ltda/orm-providers-oracle"
+    "url": "https://github.com/RomaTech-LTDA/orm-providers-oracle"
   },
-  "homepage": "https://github.com/romatech-ltda/orm-providers-oracle#readme",
+  "homepage": "https://github.com/RomaTech-LTDA/orm-providers-oracle#readme",
   "bugs": {
-    "url": "https://github.com/romatech-ltda/orm-providers-oracle/issues"
+    "url": "https://github.com/RomaTech-LTDA/orm-providers-oracle/issues"
   },
   "keywords": [
     "orm",
