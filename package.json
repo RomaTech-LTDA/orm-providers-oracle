@@ -39,7 +39,7 @@
                     "watch":  "tsc --watch"
                 },
     "dependencies":  {
-                         "oracledb":  "^6.0.0"
+                         "oracledb":  "^7.0.0"
                      },
     "peerDependencies":  {
                              "@romatech/orm": "^2.0.0"
