@@ -17,8 +17,9 @@ Oracle Database provider for [@romatech/orm](https://www.npmjs.com/package/@roma
 npm install @romatech/orm @romatech/orm-providers-oracle reflect-metadata
 ```
 
-> **Note:** The `oracledb` package requires the Oracle Instant Client to be
-> installed on the machine. See the
+> **Note:** `oracledb` 6 connects in Thin mode by default, without the
+> Oracle Instant Client (the integration tests of this package run that way).
+> Thick mode, which some features need, requires the Instant Client. See the
 > [node-oracledb installation guide](https://node-oracledb.readthedocs.io/en/latest/user_guide/installation.html).
 
 ---
@@ -88,7 +89,58 @@ new OracleProvider('localhost:1521/XEPDB1')
 - Schema management (createTable, dropTable, addColumn, removeColumn)
 - Scaffold (introspect via `user_tables` and `user_tab_columns`)
 - Parameterised queries (SQL injection safe)
-- Auto-commit after each non-query statement
+- Every statement auto-commits outside a transaction (raw `executeQuery` included)
+- Transactions (`ITransactionalProvider`, since 2.1.0, see below)
+
+---
+
+## Transactions
+
+```ts
+const tx = await db.beginTransaction();
+try {
+    db.orders.add(order);
+    await db.saveChanges();
+    await tx.commit();
+} catch (err) {
+    await tx.rollback();
+    throw err;
+}
+```
+
+- Outside a transaction every statement is committed in the same round trip
+  (`autoCommit`). Between `beginTransaction()` and `commit()`/`rollback()`
+  nothing is committed.
+- The provider uses **one connection**: the transaction covers every statement
+  sent through the provider meanwhile, so use one `DbContext` per unit of work
+  when requests run concurrently.
+- Oracle commits implicitly before and after any DDL. `createTable`,
+  `dropTable`, `addColumn` and `removeColumn` therefore throw inside a
+  transaction, and so does the first `addMigration` when the migration history
+  table does not exist yet. Do not send raw DDL inside a transaction either.
+- Nested transactions are rejected; `rollback()` is a no-op when no transaction
+  is open; `disconnect()` rolls back an open transaction.
+
+In 2.0.0 the provider committed after every statement, so
+`DbContext.beginTransaction()` could not group statements (and raw
+`executeQuery` DML was never committed).
+
+### Notes
+
+- `update`, `remove` and `find` locate the row by the table's single-column
+  primary key (or `id` when the table has none). Tables with a **composite**
+  primary key are rejected with an error, instead of matching every row that
+  shares the first key column.
+- The primary key of each table is introspected once and cached. The cache is
+  cleared after the provider's own DDL and after raw statements that are not
+  `SELECT`/`WITH`; call `provider.clearMetadataCache()` if another process
+  changes the schema while the provider is connected.
+- Query predicates are evaluated by Oracle and then re-checked in JavaScript
+  on converted copies of the rows: `NUMBER(1)` (the type the provider creates
+  for `boolean`) is compared as a boolean, so `x => x.active === true` works.
+  The rows you get back are the driver's rows, unchanged. A comparison of a
+  date column with a string literal is left to Oracle. A `NUMBER(1)` used for
+  small integers is therefore compared as a boolean in predicates.
 
 ---
 
@@ -108,7 +160,7 @@ new OracleProvider('localhost:1521/XEPDB1')
 
 - Node.js >= 18
 - Oracle Database 12c or later (or Oracle XE)
-- Oracle Instant Client (for the native `oracledb` driver)
+- Oracle Instant Client only if you enable `oracledb` Thick mode
 - The [`oracledb`](https://www.npmjs.com/package/oracledb) npm package (installed automatically)
 
 ---
