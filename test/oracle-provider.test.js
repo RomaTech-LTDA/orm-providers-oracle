@@ -175,6 +175,17 @@ test('NUMBER(1) columns match boolean predicates; the driver rows are returned',
   assert.deepEqual((await query().where(x => x.born >= '2024-01-01').toList()).map(r => r.id), [1, 2], 'left to Oracle');
 });
 
+test('predicates written against the driver values (2.0.0 style) still match the rows Oracle returned', async () => {
+  const metaData = [
+    { name: 'id', dbTypeName: 'NUMBER', precision: 10, scale: 0 },
+    { name: 'active', dbTypeName: 'NUMBER', precision: 1, scale: 0 }
+  ];
+  // Oracle applied "active" = 1; the re-check must not drop the row.
+  const { provider } = stubProvider(tables, { rows: [{ id: 1, active: 1 }], metaData });
+  const matched = await new QueryBuilder(class Item {}, provider, 'items').where(x => x.active === 1).toList();
+  assert.deepEqual(matched, [{ id: 1, active: 1 }]);
+});
+
 // ─── Integration (ORACLE_TEST_CONNECT=host:port/service, ORACLE_TEST_USER, ORACLE_TEST_PASSWORD) ─
 
 const connectString = process.env.ORACLE_TEST_CONNECT;
